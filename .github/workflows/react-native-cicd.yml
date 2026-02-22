@@ -7,23 +7,12 @@ on:
       - "**.md"
       - "LICENSE"
       - "docs/**"
-  workflow_dispatch:
-    inputs:
-      buildType:
-        type: choice
-        description: "Build type to run"
-        options:
-          - dev
-          - prod-apk
-          - prod-aab
-          - publish-expo
-          - all
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  RCLONE_CONFIG_GDRIVE_TYPE: ${{ secrets.RCLONE_CONFIG_GDRIVE_TYPE }}
-  RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.RCLONE_CONFIG_GDRIVE_TOKEN }}
-  RCLONE_CONFIG_GDRIVE_ROOT_FOLDER_ID: ${{ secrets.RCLONE_CONFIG_GDRIVE_ROOT_FOLDER_ID }}
+  RCLONE_CONFIG_ZOHODRIVE_TYPE: ${{ secrets.RCLONE_CONFIG_ZOHODRIVE_TYPE }}
+  RCLONE_CONFIG_ZOHODRIVE_TOKEN: ${{ secrets.RCLONE_CONFIG_ZOHODRIVE_TOKEN }}
+  RCLONE_CONFIG_ZOHODRIVE_DRIVE_ID: ${{ secrets.RCLONE_CONFIG_ZOHODRIVE_DRIVE_ID }}
   NODE_OPTIONS: --openssl-legacy-provider
 
 jobs:
@@ -193,13 +182,6 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: 🚀 Publish to Expo
-        if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'publish-expo'
-        run: |
-          eas update --auto
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
       - name: 🏗 Setup rclone
         uses: AnimMouse/setup-rclone@v1
         with:
@@ -213,12 +195,13 @@ jobs:
           # Create rclone config directory
           mkdir -p ~/.config/rclone
 
-          # Create rclone config file for Google Drive
+          # Create rclone config file matching your existing configuration structure
           cat > ~/.config/rclone/rclone.conf << EOF
-          [gdrive]
-          type = ${RCLONE_CONFIG_GDRIVE_TYPE}
-          token = ${RCLONE_CONFIG_GDRIVE_TOKEN}
-          root_folder_id = ${RCLONE_CONFIG_GDRIVE_ROOT_FOLDER_ID}
+          [zohodrive]
+          type = ${RCLONE_CONFIG_ZOHODRIVE_TYPE}
+          region = com
+          token = ${RCLONE_CONFIG_ZOHODRIVE_TOKEN}
+          root_folder_id = ${RCLONE_CONFIG_ZOHODRIVE_DRIVE_ID}
           EOF
 
           # Set proper permissions
@@ -226,9 +209,9 @@ jobs:
 
           # Test configuration
           echo "Testing rclone configuration..."
-          rclone ls gdrive: --max-depth 1
+          rclone ls zohodrive: --max-depth 1
 
-      - name: 📤 Upload Development APK to Google Drive
+      - name: 📤 Upload Development APK to Zoho Drive
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'dev' || github.event_name == 'push'
         run: |
           VERSION=$(node -p "require('./app.json').expo.version")
@@ -237,13 +220,13 @@ jobs:
 
           # Create directory first
           echo "Creating folder: $FOLDER_PATH"
-          rclone mkdir "gdrive:$FOLDER_PATH"
+          rclone mkdir "zohodrive:$FOLDER_PATH"
 
           # Copy APK file
           echo "Uploading development APK..."
-          rclone copy ./app-dev.apk "gdrive:$FOLDER_PATH/app-dev-$VERSION-$BUILD_NUMBER.apk" -v
+          rclone copy ./app-dev.apk "zohodrive:$FOLDER_PATH/app-dev-$VERSION-$BUILD_NUMBER.apk" -v
 
-      - name: 📤 Upload Production APK to Google Drive
+      - name: 📤 Upload Production APK to Zoho Drive
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-apk' || github.event_name == 'push'
         run: |
           VERSION=$(node -p "require('./app.json').expo.version")
@@ -251,9 +234,9 @@ jobs:
           FOLDER_PATH="App Builds/$VERSION-$BUILD_NUMBER"
 
           echo "Uploading production APK..."
-          rclone copy ./app-prod.apk "gdrive:$FOLDER_PATH/app-prod-$VERSION-$BUILD_NUMBER.apk" -v
+          rclone copy ./app-prod.apk "zohodrive:$FOLDER_PATH/app-prod-$VERSION-$BUILD_NUMBER.apk" -v
 
-      - name: 📤 Upload Production AAB to Google Drive
+      - name: 📤 Upload Production AAB to Zoho Drive
         if: github.event.inputs.buildType == 'all' || github.event.inputs.buildType == 'prod-aab' || github.event_name == 'push'
         run: |
           VERSION=$(node -p "require('./app.json').expo.version")
@@ -261,7 +244,7 @@ jobs:
           FOLDER_PATH="App Builds/$VERSION-$BUILD_NUMBER"
 
           echo "Uploading production AAB..."
-          rclone copy ./app-prod.aab "gdrive:$FOLDER_PATH/app-prod-$VERSION-$BUILD_NUMBER.aab" -v
+          rclone copy ./app-prod.aab "zohodrive:$FOLDER_PATH/app-prod-$VERSION-$BUILD_NUMBER.aab" -v
 
       - name: 📦 Upload build artifacts to GitHub
         uses: actions/upload-artifact@v4
