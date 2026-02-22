@@ -58,7 +58,7 @@ jobs:
         run: yarn lint
 
       - name: 🎨 Run Prettier check
-        run: yarn format:check
+        run: yarn check
 
   build-and-deploy:
     needs: test
